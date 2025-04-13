@@ -9,6 +9,8 @@ from pygame import display
 from pygame.constants import MOUSEWHEEL
 import webbrowser
 import os
+import time
+import copy
 from time import sleep
 
 def chdir_bom(caminho):
@@ -22,8 +24,18 @@ print(working_directory)
 working_directory = chdir_bom(fr"{working_directory}/flask-tutorial/flaskr")
 print(working_directory)
 
+#Double points
+double_point = bool()
+double_point_active = bool()
+double_point_duration = 5
+momento = 0
+gold_pos = ()
 
-
+#Return by Death
+return_ativado = False
+special_pos = ()
+pode_morrer = True
+pause = bool()
 
 #link
 url = "http://127.0.0.1:5000/auth/register"
@@ -41,6 +53,7 @@ BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 GREEN2 = (67, 146, 55)
 RED = (255, 0, 0)
+PURPLE = (205, 0, 250)
 BLUE = (0,0,255)
 
 #Tela
@@ -56,6 +69,7 @@ left = 2
 down = 3
 stop = 4
 my_direction = 4
+my_direction_save = int()
 old_direction = int()
 
 #FPS
@@ -71,6 +85,7 @@ baixo = pygame.image.load("carinhas/baixoo.png")
 
 carinha = [cima, direita, esquerda, baixo]
 qual = 0
+qual_save = 0
 
 #Vericia se a cobra pode começar a se mexer
 pode_comecar = False
@@ -80,14 +95,22 @@ tam = 40
 
 #Cobra
 inicial = [(280,200), (280,240), (280, 280)]
+cobra_save = [()]
 snake_pos = inicial
 cobra = pygame.image.load("cobra.png")
-velocidade = 120
+velocidade = 100
+velocidade_save = int()
 
 #Maçã
+apple_pos_save = ()
+apple_pos2_save = ()
 apple_pos = ((280, 160))
 apple_pos2 = apple_pos2 = (random.randint(0, 14) * tam, random.randint(0, 14) * tam)
 apple = pygame.image.load("pontoss.png")
+apple_special = pygame.image.load("pontosRaro.png")
+apple_gold = pygame.image.load("pontosX2.png")
+especial = False
+chance = int()
 
 #Buraco
 buraco = pygame.image.load("buraco.png")
@@ -102,6 +125,7 @@ cantos = [(0,0), (0,560), (560,560), (560,0)]
 
 #Pontos
 pontos = 0
+pontos_save = int()
 
 '''#textos configuração
 fonte=pygame.font.SysFont("Arial",21)
@@ -177,6 +201,7 @@ with open("nomes.txt", "r") as arquivo:
     dados.sort(key=lambda x: x[2], reverse=True)
 
 
+
 def linhas_varredura(tela):
 
   #pygame.display.update()
@@ -195,7 +220,7 @@ def linhas_varredura(tela):
   screen.blit(tela_por_cima, (0, 0))
 
 def reinicializar(msg_morte):
-  global jogo_comecou, old_direction_guardado, snake_pos, apple_pos, velocidade, qual, pode_comecar, my_direction, old_direction, morreu, pontos, menu_morte, pode_botoes_menu, jogo_comecou, pausado, aba_placar, pode_botoes_menu
+  global double_point_active, apple_pos2, especial, cobra_save, pontos_save, apple_pos2_save, apple_pos_save, my_direction_save, jogo_comecou, old_direction_guardado, snake_pos, apple_pos, velocidade, qual, pode_comecar, my_direction, old_direction, morreu, pontos, menu_morte, pode_botoes_menu, jogo_comecou, pausado, aba_placar, pode_botoes_menu
   if morreu:
     preto_transparente = pygame.Surface((600,600))
     preto_transparente.set_alpha(225)
@@ -204,11 +229,11 @@ def reinicializar(msg_morte):
       old_direction = my_direction
     old_direction_guardado = True
     my_direction = stop
-    apple_pos = ((240, 160))
-    snake_pos = [(240,200), (240,240), (240, 280)]
+    apple_pos = ((280, 160))
+    snake_pos = [(280,200), (280,240), (280, 280)]
     pode_comecar = False
     pode_botoes_menu = False
-    screen.blit(msg_morte, (78,195))
+    screen.blit(msg_morte, msg_morte.get_rect(centerx=(600//2), top=(195)))
     atual[0] = (atual[0][0], atual[0][1], pontos)
 
     if not menu_morte:
@@ -217,6 +242,8 @@ def reinicializar(msg_morte):
       jogo_comecou = False
 
       pontos = 0
+      double_point_active = False
+      especial = False
       pausado = False
       aba_placar = False
       pode_botoes_menu = True
@@ -228,17 +255,39 @@ def reinicializar(msg_morte):
       morreu = False
       old_direction = int()
 
+def cronometro(tempo, momento):
+
+  atual = time.time() - momento
+
+  if atual >= tempo:
+    return False
+    
 
 #Aumenta a quantidade de casas da Snake
 def aumentar():
-  global apple_pos, apple_pos2, snake_pos, pontos, velocidade
+  global momento, gold_pos, double_point, double_point_active, qual_save, qual, special_pos, apple_pos, apple_pos2, snake_pos, pontos, velocidade, especial, cobra_save, apple_pos2_save, apple_pos_save, pontos_save, my_direction_save, return_ativado
   p = pontos
 
+
   if snake_pos[0] == apple_pos:
+    aleatorio = random.randint(0, 7)
+    chance = 1
+    
     comer = pygame.mixer.Sound("comer.mp3")
     comer.play()
-    snake_pos.append(snake_pos[-1])
-    pontos += 1
+    if double_point_active:
+      snake_pos.append(snake_pos[-1])
+      snake_pos.append(snake_pos[-1])
+      pontos += 2
+    else:
+      snake_pos.append(snake_pos[-1])
+      pontos += 1
+
+    if aleatorio == chance:
+      especial = True
+    else:
+      especial = False
+
     if pontos == p + 1:
       velocidade -= 1
     if pontos%20==0:
@@ -247,7 +296,7 @@ def aumentar():
 
     if velocidade < 30:
       velocidade = 30
-  
+
     while True:
       apple_pos = (random.randint(0, 14) * tam, random.randint(0, 14) * tam)
       if apple_pos in snake_pos or apple_pos in mapa or apple_pos in wall or apple_pos in cantos:
@@ -255,24 +304,40 @@ def aumentar():
       else:
         break
 
-
-    while True:
-      #apple_pos2 = (random.randint(0, 14) * tam, random.randint(0, 14) * tam)
-      if apple_pos2 in snake_pos or apple_pos2 in mapa or apple_pos2 in wall or apple_pos2 in cantos:
-        continue
-      else:
-        break
-
-    if apple_pos == apple_pos2:
-      apple_pos = (random.randint(0, 14) * tam, random.randint(0, 14) * tam)
     if apple_pos2 == apple_pos:
-      apple_pos2 = (random.randint(0, 14) * tam, random.randint(0, 14) * tam)
+      apple_pos = (random.randint(0, 14) * tam, random.randint(0, 14) * tam)
+
+  if snake_pos[0] == special_pos:
+    special_pos = ()
+    return_ativado = True
+    cobra_save = copy.deepcopy(snake_pos)
+    pontos_save = copy.deepcopy(pontos)
+    my_direction_save = copy.deepcopy(my_direction)
+    qual_save = copy.deepcopy(qual)
+    apple_pos_save = copy.deepcopy(apple_pos)
+    apple_pos2_save = copy.deepcopy(apple_pos2)
+    
 
   if snake_pos[0] == apple_pos2:
+    aleatorio_ = random.randint(0, 7)
+    chance_ = 1
+
+    if aleatorio_ == chance_ and double_point_active == False:
+      double_point = True
+    else:
+      double_point = False
+
     comer = pygame.mixer.Sound("comer(02).mp3")
     comer.play()
-    snake_pos.append(snake_pos[-1])
-    pontos += 1
+
+    if double_point_active:
+      snake_pos.append(snake_pos[-1])
+      snake_pos.append(snake_pos[-1])
+      pontos += 2
+    else:
+      snake_pos.append(snake_pos[-1])
+      pontos += 1
+
     if pontos == p + 1:
       velocidade -= 1
 
@@ -289,17 +354,21 @@ def aumentar():
       else:
         break
 
-    while True:
-      #apple_pos = (random.randint(0, 14) * tam, random.randint(0, 14) * tam)
-      if apple_pos in snake_pos or apple_pos in mapa or apple_pos in wall or apple_pos in cantos:
-        continue
-      else:
-        break
-    if apple_pos == apple_pos2:
-      apple_pos = (random.randint(0, 14) * tam, random.randint(0, 14) * tam)
     if apple_pos2 == apple_pos:
       apple_pos2 = (random.randint(0, 14) * tam, random.randint(0, 14) * tam)
-    
+
+    canal_ian = pygame.mixer.Channel(5)
+    if snake_pos[0] == gold_pos:
+      gold_pos = ()
+      ian = pygame.mixer.Sound("ian.mp3")
+      if canal_ian.get_busy:
+        canal_ian.stop()
+
+      canal_ian.play(ian)
+      double_point_active = True
+      momento = time.time()
+      
+
 
 #Desenha o fundo quadriculado
 def quadriculado(tela_login):
@@ -401,11 +470,11 @@ def botoes(botao, event, estado):
 
 #Verifica se a cobra colidiu com si mesma
 def colisao():
-  global morreu,menu_morte,atual,dados,pontos
+  global pause, qual, qual_save, pode_morrer, morreu,menu_morte,atual,dados,pontos,especial,return_ativado,snake_pos,my_direction,cobra_save,pontos_save,my_direction_save, apple_pos, apple_pos2, apple_pos2_save, apple_pos_save
 
   head = snake_pos[0]
 
-  if head in snake_pos[1:] or head in wall[0:]:
+  if (head in snake_pos[1:] or head in wall[0:]) and return_ativado == False:
     morte=pygame.mixer.Sound("morte.mp3")
     morte.play()
     morreu = True
@@ -430,6 +499,16 @@ def colisao():
       for i in range(len(dados)):
         arquivo.write(f"{dados[i][0]},{dados[i][1]},{dados[i][2]},\n")
 
+  elif (head in snake_pos[1:] or head in wall[0:]) and return_ativado == True:
+    return_ativado = False
+    pontos = pontos_save
+    snake_pos = cobra_save
+    my_direction = my_direction_save
+    qual = qual_save
+    apple_pos2 = apple_pos2_save
+    apple_pos = apple_pos_save
+    pause = True
+
 def caixa_texto(txt, caixa, ativo, surface, funcao):
   fonte_menor = pygame.font.SysFont("Arial", 12)
   fonte_arial = pygame.font.SysFont("Arial", 14)
@@ -450,13 +529,14 @@ log_in = "LOGIN"
 sign_up = "SIGN UP"
 ativo1 = False
 ativo2 = False
+ativo3 = False
+ativo4 = False
 cima_botao = False
 b = False
 
 tela = True
 def jogo():
-  global b, txt22, screen, aba_placar, aba_creditos, WHITE, BLACK, GREEN, GREEN2, RED, chao, up, right, left, down, stop, my_direction, old_direction, clock, fps, contador, cima, direita, esquerda, baixo, carinha, qual, pode_comecar, tam, inicial, snake_pos, cobra, velocidade, apple_pos, apple_pos2, apple, buraco, parede, cantos, pontos, otão_play, estado_play, botao_placar, estado_placar, botao_sair, estado_sair, botao_menu, estado_menu, botao_creditos, estado_creditos, jogo_comecou, pausado, old_direction_guardado, allmapa, allwall, morreu, pode_clicar, menu_morte, pode_botoes_menu, click_caminho, mapa, wall, ps, inuteis, nome, senha, p, atual, y_creditos, superficie, xx, yy, scroll, dados, usuario, senha_txt, entrar, txt1, txt2, log_in, ativo1, ativo2, cima_botao, tela
-
+  global double_point_active, double_point_duration, momento, gold_pos, apple_gold, pause, special_pos, especial, apple_pos2_save, return_ativado, apple_pos_save, cobra_save, pontos_save, my_direction_save, ativo4, ativo3, b, txt22, screen, aba_placar, aba_creditos, WHITE, BLACK, GREEN, GREEN2, RED, chao, up, right, left, down, stop, my_direction, old_direction, clock, fps, contador, cima, direita, esquerda, baixo, carinha, qual, pode_comecar, tam, inicial, snake_pos, cobra, velocidade, apple_pos, apple_pos2, apple, buraco, parede, cantos, pontos, otão_play, estado_play, botao_placar, estado_placar, botao_sair, estado_sair, botao_menu, estado_menu, botao_creditos, estado_creditos, jogo_comecou, pausado, old_direction_guardado, allmapa, allwall, morreu, pode_clicar, menu_morte, pode_botoes_menu, click_caminho, mapa, wall, ps, inuteis, nome, senha, p, atual, y_creditos, superficie, xx, yy, scroll, dados, usuario, senha_txt, entrar, txt1, txt2, log_in, ativo1, ativo2, cima_botao, tela
   # Inicializa o Pygame
   pygame.init()
 
@@ -467,8 +547,8 @@ def jogo():
   fonte_placar = pygame.font.SysFont("Arial", 44)
   msg_play_formatado = fonte.render("Play",False,WHITE)
   msg_placar_formatado = fonte.render("Placar",False,WHITE)
-  msg_sair_formatado = arial.render("Sair  ",False,WHITE)
-  aperte_iniciar = fonte.render('Aperte a tecla W ou a Seta para Cima para iniciar',False,GREEN2)
+  msg_sair_formatado = arial.render("Sair",False,WHITE)
+  aperte_iniciar = fonte.render('Aperte "W" ou "Seta para Cima" para iniciar',False,GREEN2)
   msg_menu = fonte.render("Main menu",False,WHITE)
   msg_morte = fonteGO.render("Game-Over",False,WHITE)
   msg_placar = fonte_placar.render("Placar Local: ",False,WHITE)
@@ -482,13 +562,15 @@ def jogo():
     tela_login = pygame.Surface((600,600))
     tela_login.fill(WHITE)
     mouse_pos = pygame.mouse.get_pos()
-    if botao_link.collidepoint(mouse_pos):
+    if botao_link.collidepoint(mouse_pos) or ativo4:
       pygame.draw.rect(tela_login, (128,128,128), botao_link)
+      #ativo4 = True
     else:
       pygame.draw.rect(tela_login, (169,169,169), botao_link)
       
-    if botao_entrar.collidepoint(mouse_pos):
+    if botao_entrar.collidepoint(mouse_pos) or ativo3:
       pygame.draw.rect(tela_login, (128,128,128), botao_entrar)
+      #ativo3 = True
     else:
       pygame.draw.rect(tela_login, (169,169,169), botao_entrar)
 
@@ -508,32 +590,38 @@ def jogo():
         pygame.quit()
         sys.exit()
 
-      if event.type == pygame.MOUSEBUTTONUP:
-        if botao_entrar.collidepoint(event.pos):
-          with open("jogadores.txt", "r") as arquivo:
-            linhas = arquivo.readlines()
-            for i in linhas:
-              nome_play, senhas_play, inuteis = i.split(",")
+      if event.type == pygame.MOUSEBUTTONUP and botao_entrar.collidepoint(event.pos) or event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN and ativo3 == True:
+        with open("jogadores.txt", "r") as arquivo:
+          linhas = arquivo.readlines()
+          for i in linhas:
+            nome_play, senhas_play, inuteis = i.split(",")
 
-              if nome_play == txt1 and senhas_play == txt2 and txt1 != '' and txt2 != "":
-                with open("atual.txt", "w") as x:                                  
-                  x.write(f"{txt1},{txt2},")                                           
-                  tela = False                                                        
-        elif botao_link.collidepoint(event.pos):
-          webbrowser.open_new_tab(url)
+            if nome_play == txt1 and senhas_play == txt2 and txt1 != '' and txt2 != "":
+              with open("atual.txt", "w") as x:                                  
+                x.write(f"{txt1},{txt2},")                                           
+                tela = False                                                        
+      elif event.type == pygame.MOUSEBUTTONUP and botao_link.collidepoint(event.pos) or event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN and ativo4 == True:
+        webbrowser.open_new_tab(url)
+
       if event.type == pygame.MOUSEBUTTONDOWN:
         if caixa1.collidepoint(event.pos):
           ativo1 = True
           ativo2 = False
+          ativo3 = False
+          ativo4 = False
           txt1 = ""
         elif caixa2.collidepoint(event.pos):
           ativo1 = False
           ativo2 = True
+          ativo3 = False
+          ativo4 = False
           txt2 = ""
           txt22 = ""
         else:
           ativo1 = False
           ativo2 = False
+          ativo3 = False
+          ativo4 = False
 
       if event.type == pygame.KEYDOWN:
         if event.key == pygame.K_TAB:
@@ -542,6 +630,12 @@ def jogo():
             ativo2 = True
           elif ativo2:
             ativo2 = False
+            ativo3 = True
+          elif ativo3:
+            ativo3 = False
+            ativo4 = True
+          elif ativo4:
+            ativo4 = False
             ativo1 = True
             
         if ativo1:
@@ -575,7 +669,7 @@ def jogo():
           elif event.key == pygame.K_LCTRL:
               txt22 = txt2
               b = True
-              
+                
       elif event.type == pygame.KEYUP:
           if event.key == pygame.K_LCTRL:
               txt22 = '*'*x
@@ -593,6 +687,13 @@ def jogo():
   pygame.mixer.music.play(-1)
   #Loop principal do jogo
   while True:
+    if pause:
+      pygame.mixer.music.pause()
+      tempo=pygame.mixer.Sound("VoltarNoTempo.mp3")
+      tempo.play()
+      time.sleep(0.60)
+      pygame.mixer.music.unpause()
+      pause = False
     """teste = pygame.mixer.Sound("elevator.mp3")
     if contador%124000==0:
       teste.play()
@@ -649,7 +750,7 @@ def jogo():
         if clicou_play:
           pode_comecar = True
           jogo_comecou = True
-          velocidade = 120
+          velocidade = 100
 
         clicou_creditos, estado_creditos = botoes(pygame.Rect(200,440,botao_creditos[estado_creditos].get_width(),botao_creditos[estado_creditos].get_height()),event,estado_creditos)
 
@@ -661,6 +762,7 @@ def jogo():
         pygame.quit()
         sys.exit()
 
+      #colisao()
       #Verifica se o usuario apertou alguma tecla
       if event.type == pygame.KEYDOWN:
         if pode_comecar and pode_clicar:
@@ -749,25 +851,25 @@ def jogo():
       screen.blit(botao_sair[estado_sair],(200, 480))
 
       if estado_creditos == 0 or estado_creditos == 1:
-        screen.blit(msg_creditos_formatado,(263,446))
+        screen.blit(msg_creditos_formatado,msg_creditos_formatado.get_rect(centerx=(600//2), top=(446)))
 
       elif estado_creditos == 2:
-        screen.blit(msg_creditos_formatado,(263,448))
+        screen.blit(msg_creditos_formatado,msg_creditos_formatado.get_rect(centerx=(600//2), top=(448)))
 
       if estado_sair == 0 or estado_sair == 1:
-        screen.blit(msg_sair_formatado,(279,486))
+        screen.blit(msg_sair_formatado,msg_sair_formatado.get_rect(centerx=(600//2), top=(486)))
       elif estado_sair == 2:
-        screen.blit(msg_sair_formatado,(279,488))
+        screen.blit(msg_sair_formatado,msg_sair_formatado.get_rect(centerx=(600//2), top=(488)))
 
       if estado_play == 0 or estado_play == 1:
-        screen.blit(msg_play_formatado,(278,366))
+        screen.blit(msg_play_formatado,msg_play_formatado.get_rect(centerx=(600//2),top=(366)))
       elif estado_play == 2:
-        screen.blit(msg_play_formatado,(278,368))
+        screen.blit(msg_play_formatado,msg_play_formatado.get_rect(centerx=(600//2),top=(368)))
 
       if estado_placar == 0 or estado_placar == 1:
-        screen.blit(msg_placar_formatado,(268,406))
+        screen.blit(msg_placar_formatado,msg_placar_formatado.get_rect(centerx=(600//2),top=(406)))
       elif estado_placar == 2:
-        screen.blit(msg_placar_formatado,(268,408))
+        screen.blit(msg_placar_formatado,msg_placar_formatado.get_rect(centerx=(600//2),top=(408)))
 
     #Desenha a "F" enquanto a cobra estiver parada
     #if my_direction == stop and pausado == False:
@@ -775,10 +877,9 @@ def jogo():
 
     buracos()
     paredes()
-
     #Chama a funcao ja escrita antes
-    aumentar()
-
+    #aumentar()
+    colisao()
 
     #Desenha a cobra
     if not morreu:
@@ -793,7 +894,7 @@ def jogo():
           screen.blit(cobra, pos)
 
     elif morreu:
-      skane_pos = inicial
+      especial = False
       my_direction = stop
       if my_direction != stop or pausado == True:
         for pos in snake_pos:
@@ -804,7 +905,14 @@ def jogo():
       else:
         for pos in snake_pos:
           screen.blit(cobra, pos)
-
+    else:
+      pass
+        
+    #Chama a funcao ja escrita antes
+    aumentar()
+    if double_point_active and time.time() - momento >= double_point_duration:
+      double_point_active = False
+      print("acabou")
     #Desenha a maçã
     while True:
       if apple_pos2 in snake_pos or apple_pos2 in mapa or apple_pos2 in wall or apple_pos2 in cantos or apple_pos2 in apple_pos:
@@ -818,16 +926,24 @@ def jogo():
         continue
       else:
         break
+    
+    if especial == False:
+      screen.blit(apple, apple_pos)
+    elif especial == True:
+      screen.blit(apple_special , apple_pos)
+      special_pos = apple_pos
+      
 
-    screen.blit(apple, apple_pos)
+
     if my_direction != stop or pausado:
-      screen.blit(apple, apple_pos2)
-
-    #Chama a função ja antes escrita
-
+      if double_point == True:
+        screen.blit(apple_gold, apple_pos2)
+        gold_pos = apple_pos2
+      elif double_point == False:
+        screen.blit(apple, apple_pos2)
 
     if pode_comecar and my_direction == stop and pausado != True:
-      screen.blit(aperte_iniciar,(65,371))
+      screen.blit(aperte_iniciar,aperte_iniciar.get_rect(centerx=(600//2),top=(371)))
 
     if my_direction != stop:
       jogo_comecou = True
@@ -850,17 +966,19 @@ def jogo():
       screen.blit(botao_sair[estado_sair],(200, 400))
 
       if estado_sair == 0 or estado_sair == 1:
-        screen.blit(msg_sair_formatado,(279,406))
+        screen.blit(msg_sair_formatado, msg_sair_formatado.get_rect(centerx=(600//2), top=(406)))
       elif estado_sair == 2:
-        screen.blit(msg_sair_formatado,(279,408))
+        screen.blit(msg_sair_formatado,msg_sair_formatado.get_rect(centerx=(600//2),top=(408)))
 
     if menu_morte:
       screen.blit(botao_menu[estado_menu], (200, 360))
 
       if estado_menu == 0 or estado_menu == 1:
-        screen.blit(msg_menu,(242,366))
+        #screen.blit(msg_menu,(242,366))
+        screen.blit(msg_menu,msg_menu.get_rect(centerx=(600//2), top=(366)))
       elif estado_menu == 2:
-        screen.blit(msg_menu,(242,368))
+        #screen.blit(msg_menu,(242,368))
+        screen.blit(msg_menu,msg_menu.get_rect(centerx=(600//2), top=(368)))
     if aba_creditos:
       preto_transparente = pygame.Surface((600,3000))
   #adicionar creditos
@@ -928,8 +1046,7 @@ def jogo():
 
     if yy > 0:
       yy = 0
-
-    colisao()
+    #colisao()
     placar(msg_placar,fonte)
 
     msgponto=f"Pontos: {pontos}"
