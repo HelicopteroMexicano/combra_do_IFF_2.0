@@ -31,6 +31,20 @@ double_point_duration = 5
 momento = 0
 gold_pos = ()
 
+#Haste
+haste = bool()
+haste_pos = ()
+haste_active = bool()
+momento_haste = 0
+haste_duration = 5
+
+#Inverted
+inverted = bool()
+inverted_pos = ()
+inverted_active = bool()
+momento_inverted = 0
+inverted_duration = 3
+
 #Return by Death
 return_ativado = False
 special_pos = ()
@@ -98,7 +112,7 @@ inicial = [(280,200), (280,240), (280, 280)]
 cobra_save = [()]
 snake_pos = inicial
 cobra = pygame.image.load("cobra.png")
-velocidade = 100
+velocidade = 120
 velocidade_save = int()
 
 #Maçã
@@ -109,6 +123,8 @@ apple_pos2 = apple_pos2 = (random.randint(0, 14) * tam, random.randint(0, 14) * 
 apple = pygame.image.load("pontoss.png")
 apple_special = pygame.image.load("pontosRaro.png")
 apple_gold = pygame.image.load("pontosX2.png")
+apple_haste = pygame.image.load("PontosHaste.png")
+apple_inverted = pygame.image.load("PontosInvertido.png")
 especial = False
 chance = int()
 
@@ -169,6 +185,7 @@ pode_botoes_menu = True
 #Sons
 pygame.mixer.init()
 click_caminho = pygame.mixer.Sound("button-click.mp3")
+canal_ian = pygame.mixer.Channel(5)
 
 #Buraco
 mapa = []
@@ -220,7 +237,7 @@ def linhas_varredura(tela):
   screen.blit(tela_por_cima, (0, 0))
 
 def reinicializar(msg_morte):
-  global double_point_active, apple_pos2, especial, cobra_save, pontos_save, apple_pos2_save, apple_pos_save, my_direction_save, jogo_comecou, old_direction_guardado, snake_pos, apple_pos, velocidade, qual, pode_comecar, my_direction, old_direction, morreu, pontos, menu_morte, pode_botoes_menu, jogo_comecou, pausado, aba_placar, pode_botoes_menu
+  global double_point, inverted, inverted_active, haste, haste_active, double_point_active, apple_pos2, especial, cobra_save, pontos_save, apple_pos2_save, apple_pos_save, my_direction_save, jogo_comecou, old_direction_guardado, snake_pos, apple_pos, velocidade, qual, pode_comecar, my_direction, old_direction, morreu, pontos, menu_morte, pode_botoes_menu, jogo_comecou, pausado, aba_placar, pode_botoes_menu
   if morreu:
     preto_transparente = pygame.Surface((600,600))
     preto_transparente.set_alpha(225)
@@ -232,6 +249,7 @@ def reinicializar(msg_morte):
     apple_pos = ((280, 160))
     snake_pos = [(280,200), (280,240), (280, 280)]
     pode_comecar = False
+    canal_ian.stop()
     pode_botoes_menu = False
     screen.blit(msg_morte, msg_morte.get_rect(centerx=(600//2), top=(195)))
     atual[0] = (atual[0][0], atual[0][1], pontos)
@@ -243,12 +261,17 @@ def reinicializar(msg_morte):
 
       pontos = 0
       double_point_active = False
+      double_point = False
+      inverted = False
+      inverted_active = False
       especial = False
+      haste = False
+      haste_active = False
       pausado = False
       aba_placar = False
       pode_botoes_menu = True
       old_direction_guardado = False
-      velocidade = 100
+      velocidade = 120
       qual = 0
       pode_comecar = False
       my_direction = stop
@@ -265,13 +288,14 @@ def cronometro(tempo, momento):
 
 #Aumenta a quantidade de casas da Snake
 def aumentar():
-  global momento, gold_pos, double_point, double_point_active, qual_save, qual, special_pos, apple_pos, apple_pos2, snake_pos, pontos, velocidade, especial, cobra_save, apple_pos2_save, apple_pos_save, pontos_save, my_direction_save, return_ativado
+  global inverted, momento_inverted, inverted_active, inverted_pos, momento_haste,haste, haste_pos, haste_active, momento, gold_pos, double_point, double_point_active, qual_save, qual, special_pos, apple_pos, apple_pos2, snake_pos, pontos, velocidade, especial, cobra_save, apple_pos2_save, apple_pos_save, pontos_save, my_direction_save, return_ativado
   p = pontos
 
 
   if snake_pos[0] == apple_pos:
     aleatorio = random.randint(0, 7)
     chance = 1
+    haste_chance = 2
     
     comer = pygame.mixer.Sound("comer.mp3")
     comer.play()
@@ -285,7 +309,12 @@ def aumentar():
 
     if aleatorio == chance:
       especial = True
+      haste = False
+    elif aleatorio == haste_chance:
+      haste = True
+      especial = False
     else:
+      haste = False
       especial = False
 
     if pontos == p + 1:
@@ -316,15 +345,31 @@ def aumentar():
     qual_save = copy.deepcopy(qual)
     apple_pos_save = copy.deepcopy(apple_pos)
     apple_pos2_save = copy.deepcopy(apple_pos2)
+
+  if snake_pos[0] == haste_pos:
+    haste_pos = ()
+    print("comeu haste")
+
+    if not haste_active:
+      velocidade -= 55
+      
+    haste_active = True
+    momento_haste = time.time()
     
 
   if snake_pos[0] == apple_pos2:
     aleatorio_ = random.randint(0, 7)
     chance_ = 1
+    chance_inverted = 2
 
     if aleatorio_ == chance_ and double_point_active == False:
       double_point = True
+      inverted = False
+    elif aleatorio_ == chance_inverted:
+      inverted = True
+      double_point = False
     else:
+      inverted = False
       double_point = False
 
     comer = pygame.mixer.Sound("comer(02).mp3")
@@ -357,17 +402,21 @@ def aumentar():
     if apple_pos2 == apple_pos:
       apple_pos2 = (random.randint(0, 14) * tam, random.randint(0, 14) * tam)
 
-    canal_ian = pygame.mixer.Channel(5)
-    if snake_pos[0] == gold_pos:
-      gold_pos = ()
-      ian = pygame.mixer.Sound("ian.mp3")
-      if canal_ian.get_busy:
-        canal_ian.stop()
+  if snake_pos[0] == gold_pos:
+    gold_pos = ()
+    ian = pygame.mixer.Sound("ian.mp3")
+    if canal_ian.get_busy:
+      canal_ian.stop()
 
-      canal_ian.play(ian)
-      double_point_active = True
-      momento = time.time()
-      
+    canal_ian.play(ian)
+    double_point_active = True
+    momento = time.time()
+  
+  if snake_pos[0] == inverted_pos:
+    print("comeu invertido")
+    inverted_pos = ()
+    inverted_active = True
+    momento_inverted = time.time()
 
 
 #Desenha o fundo quadriculado
@@ -536,7 +585,7 @@ b = False
 
 tela = True
 def jogo():
-  global double_point_active, double_point_duration, momento, gold_pos, apple_gold, pause, special_pos, especial, apple_pos2_save, return_ativado, apple_pos_save, cobra_save, pontos_save, my_direction_save, ativo4, ativo3, b, txt22, screen, aba_placar, aba_creditos, WHITE, BLACK, GREEN, GREEN2, RED, chao, up, right, left, down, stop, my_direction, old_direction, clock, fps, contador, cima, direita, esquerda, baixo, carinha, qual, pode_comecar, tam, inicial, snake_pos, cobra, velocidade, apple_pos, apple_pos2, apple, buraco, parede, cantos, pontos, otão_play, estado_play, botao_placar, estado_placar, botao_sair, estado_sair, botao_menu, estado_menu, botao_creditos, estado_creditos, jogo_comecou, pausado, old_direction_guardado, allmapa, allwall, morreu, pode_clicar, menu_morte, pode_botoes_menu, click_caminho, mapa, wall, ps, inuteis, nome, senha, p, atual, y_creditos, superficie, xx, yy, scroll, dados, usuario, senha_txt, entrar, txt1, txt2, log_in, ativo1, ativo2, cima_botao, tela
+  global momento_inverted, inverted, inverted_active, apple_inverted, inverted_pos, haste,haste_active, haste_duration, apple_haste, haste_pos, double_point_active, double_point_duration, momento, gold_pos, apple_gold, pause, special_pos, especial, apple_pos2_save, return_ativado, apple_pos_save, cobra_save, pontos_save, my_direction_save, ativo4, ativo3, b, txt22, screen, aba_placar, aba_creditos, WHITE, BLACK, GREEN, GREEN2, RED, chao, up, right, left, down, stop, my_direction, old_direction, clock, fps, contador, cima, direita, esquerda, baixo, carinha, qual, pode_comecar, tam, inicial, snake_pos, cobra, velocidade, apple_pos, apple_pos2, apple, buraco, parede, cantos, pontos, otão_play, estado_play, botao_placar, estado_placar, botao_sair, estado_sair, botao_menu, estado_menu, botao_creditos, estado_creditos, jogo_comecou, pausado, old_direction_guardado, allmapa, allwall, morreu, pode_clicar, menu_morte, pode_botoes_menu, click_caminho, mapa, wall, ps, inuteis, nome, senha, p, atual, y_creditos, superficie, xx, yy, scroll, dados, usuario, senha_txt, entrar, txt1, txt2, log_in, ativo1, ativo2, cima_botao, tela
   # Inicializa o Pygame
   pygame.init()
 
@@ -750,7 +799,7 @@ def jogo():
         if clicou_play:
           pode_comecar = True
           jogo_comecou = True
-          velocidade = 100
+          velocidade = 120
 
         clicou_creditos, estado_creditos = botoes(pygame.Rect(200,440,botao_creditos[estado_creditos].get_width(),botao_creditos[estado_creditos].get_height()),event,estado_creditos)
 
@@ -767,25 +816,49 @@ def jogo():
       if event.type == pygame.KEYDOWN:
         if pode_comecar and pode_clicar:
           if (event.key == pygame.K_w
-                or event.key == pygame.K_UP) and my_direction != down and pausado == False:
+                or event.key == pygame.K_UP) and my_direction != down and pausado == False and not inverted_active:
             my_direction = up
             qual = 0
             pode_clicar = False
           if (event.key == pygame.K_d
-                or event.key == pygame.K_RIGHT) and my_direction != left and my_direction != stop:
+                or event.key == pygame.K_RIGHT) and my_direction != left and my_direction != stop and not inverted_active:
             my_direction = right
             qual = 1
             pode_clicar = False
           if (event.key == pygame.K_a
-                or event.key == pygame.K_LEFT) and my_direction != right and my_direction != stop:
+                or event.key == pygame.K_LEFT) and my_direction != right and my_direction != stop and not inverted_active:
             my_direction = left
             qual = 2
             pode_clicar = False
           if (event.key == pygame.K_s
-                or event.key == pygame.K_DOWN) and my_direction != up and my_direction != stop:
+                or event.key == pygame.K_DOWN) and my_direction != up and my_direction != stop and not inverted_active:
             my_direction = down
             qual = 3
             pode_clicar = False
+          
+          if inverted_active == True:
+            if (event.key == pygame.K_w
+                or event.key == pygame.K_UP) and my_direction != up and pausado == False:
+              my_direction = down
+              qual = 3
+            pode_clicar = False
+            if (event.key == pygame.K_d
+                or event.key == pygame.K_RIGHT) and my_direction != right and my_direction != stop:
+              my_direction = left
+              qual = 2
+              pode_clicar = False
+            if (event.key == pygame.K_a
+                or event.key == pygame.K_LEFT) and my_direction != left and my_direction != stop:
+              my_direction = right
+              qual = 1
+              pode_clicar = False
+            if (event.key == pygame.K_s
+                or event.key == pygame.K_DOWN) and my_direction != down and my_direction != stop:
+              my_direction = up
+              qual = 0
+              pode_clicar = False
+
+
         if event.key == pygame.K_ESCAPE:
           if aba_placar:
             aba_placar = False
@@ -895,6 +968,8 @@ def jogo():
 
     elif morreu:
       especial = False
+      haste_active = False
+      haste = False
       my_direction = stop
       if my_direction != stop or pausado == True:
         for pos in snake_pos:
@@ -913,6 +988,15 @@ def jogo():
     if double_point_active and time.time() - momento >= double_point_duration:
       double_point_active = False
       print("acabou")
+
+    if haste_active and time.time() - momento_haste >= haste_duration:
+      haste_active = False
+      velocidade += 55
+      print("Haste Acabou")
+
+    if inverted_active and time.time() - momento_inverted >= inverted_duration:
+      inverted_active = False
+      print("Acabou o invertido")
     #Desenha a maçã
     while True:
       if apple_pos2 in snake_pos or apple_pos2 in mapa or apple_pos2 in wall or apple_pos2 in cantos or apple_pos2 in apple_pos:
@@ -927,19 +1011,24 @@ def jogo():
       else:
         break
     
-    if especial == False:
+    if especial == False and haste == False:
       screen.blit(apple, apple_pos)
     elif especial == True:
       screen.blit(apple_special , apple_pos)
       special_pos = apple_pos
-      
-
+    elif haste == True:
+      screen.blit(apple_haste , apple_pos)
+      haste_pos = apple_pos
+    
 
     if my_direction != stop or pausado:
       if double_point == True:
         screen.blit(apple_gold, apple_pos2)
         gold_pos = apple_pos2
-      elif double_point == False:
+      elif inverted == True:
+        screen.blit(apple_inverted, apple_pos2)
+        inverted_pos = apple_pos2
+      elif double_point == False and inverted == False:
         screen.blit(apple, apple_pos2)
 
     if pode_comecar and my_direction == stop and pausado != True:
@@ -1048,6 +1137,7 @@ def jogo():
       yy = 0
     #colisao()
     placar(msg_placar,fonte)
+    #print(f"A velocidade é: {velocidade}")
 
     msgponto=f"Pontos: {pontos}"
     msg_pontos=fonte.render(msgponto,False,BLACK)
